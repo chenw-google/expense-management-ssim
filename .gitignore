@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Google service account / ADC credentials
+*.json.key
+service-account*.json
+credentials*.json
+application_default_credentials.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Claude Code local config
+.claude/

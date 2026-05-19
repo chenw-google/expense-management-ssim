@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.claude
+*.log
+.env
+.env.local
+.env.*.local
+service-account*.json
+credentials*.json
