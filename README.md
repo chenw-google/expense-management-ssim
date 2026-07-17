@@ -9,13 +9,13 @@ AI-powered corporate expense management demo built with React, Express, and Goog
 ```
 expense/
 ├── server/
-│   └── index.ts          # Express backend — Gemini API calls, email sending
+│   └── index.ts          # Express backend — Gemini API calls, email notification
 ├── src/
 │   ├── components/
-│   │   ├── Header.tsx        # Top banner, model selector (MODELS list lives here)
-│   │   ├── TransactionTable.tsx  # Transactions tab — categorize, upload receipt, policy inline
-│   │   ├── ExpenseReport.tsx # Report tab — summary, print, notify manager
-│   │   └── PolicyPanel.tsx   # Policy reference tab
+│   │   ├── Header.tsx            # Top banner, model selector (MODELS list lives here)
+│   │   ├── TransactionTable.tsx  # Transactions tab — categorize, upload receipt, inline policy notes
+│   │   ├── ExpenseReport.tsx     # Report tab — summary, print, notify manager
+│   │   └── PolicyPanel.tsx       # Policy reference tab
 │   ├── data/
 │   │   ├── mockTransactions.ts   # Sample bank transactions
 │   │   ├── companyPolicy.ts      # Expense policy rules (limits, receipt requirements)
@@ -40,7 +40,7 @@ expense/
 
 - Node.js 20+
 - A Google Cloud project with **Vertex AI API** enabled
-- `gcloud` CLI authenticated
+- `gcloud` CLI installed and authenticated
 
 ### 1. Install dependencies
 
@@ -51,11 +51,8 @@ npm install
 ### 2. Authenticate with Google Cloud
 
 ```bash
-gcloud auth application-default login \
-  --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/gmail.send
+gcloud auth application-default login
 ```
-
-> The `gmail.send` scope is required for the "Notify Manager" button. If you don't need email, you can omit it.
 
 ### 3. Configure environment variables
 
@@ -77,9 +74,7 @@ PORT=3001
 npm run dev
 ```
 
-This starts both the Express backend (port 3001) and the Vite dev server (port 5173) in a single terminal. Open [http://localhost:5173](http://localhost:5173).
-
-The backend auto-reloads on changes to `server/index.ts`.
+This starts both the Express backend (port 3001, auto-reloads on changes) and the Vite dev server (port 5173) in a single terminal. Open [http://localhost:5173](http://localhost:5173).
 
 ---
 
@@ -87,56 +82,48 @@ The backend auto-reloads on changes to `server/index.ts`.
 
 | Tab | Description |
 |---|---|
-| **Transactions** | View bank transactions, categorize with Gemini AI, check policy, upload receipts (image/PDF/HTML) |
-| **Policy** | Browse the company expense policy rules |
-| **Expense Report** | Generate a formatted report, print to PDF, email manager notification |
+| **Transactions** | View bank transactions, categorize with Gemini AI, check policy, upload receipts |
+| **Policy** | Browse the company expense policy rules and limits |
+| **Expense Report** | Generate a formatted report, print to PDF, send manager notification |
 
-**Receipt upload** — drop an image, PDF, or HTML file. Gemini extracts vendor, amount, date, and category. If the receipt matches an existing transaction (within 5% amount, 3 days, similar vendor), it links automatically. Otherwise it adds a new expense item.
+**Receipt upload** — upload an image, PDF, or HTML file directly from the Transactions tab. Gemini extracts vendor, amount, date, and category. If the receipt matches an existing transaction (within 5% amount, 3 days, similar vendor name), it links automatically. Otherwise it adds a new expense item.
 
-**Model selector** — switch Gemini models in the header dropdown. Takes effect on the next API call.
+**Inline policy notes** — after running "Check Policy", violations and warnings appear directly below each affected transaction row.
+
+**Model selector** — switch Gemini models from the header dropdown. Takes effect on the next API call.
+
+**Notify Manager** — sends a manager notification email. In demo mode, the email content is logged to the server console and a confirmation is shown in the UI. To enable real sending, see the Gmail API note below.
+
+> **Gmail sending:** The "Notify Manager" button currently runs in demo mode (logs to console). To enable real email delivery, a Google Workspace admin must allow the `gmail.send` OAuth scope for the domain under **Admin Console → Security → API controls → Manage Google Services → Gmail**.
 
 ---
 
 ## Deploying to Cloud Run
 
-### 1. Build and push the container
-
-```bash
-PROJECT_ID=$(gcloud config get-value project)
-IMAGE="gcr.io/$PROJECT_ID/expenseiq"
-
-gcloud builds submit --tag $IMAGE
-```
-
-### 2. Deploy to Cloud Run
+The simplest way to deploy — Cloud Build handles the container build automatically:
 
 ```bash
 gcloud run deploy expenseiq \
-  --image $IMAGE \
+  --source . \
   --region us-central1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --set-env-vars GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=us-central1 \
-  --service-account YOUR_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com
+  --set-env-vars GOOGLE_CLOUD_PROJECT=$(gcloud config get-value project),GOOGLE_CLOUD_LOCATION=us-central1
 ```
 
-> Replace `YOUR_SERVICE_ACCOUNT` with a service account that has the **Vertex AI User** role. For email sending, it also needs the **Gmail API** enabled and domain-wide delegation configured.
+This builds the Docker image via Cloud Build, pushes it to Artifact Registry, and deploys to Cloud Run in one step. Re-running the same command updates the existing service in place.
 
-### 3. (Optional) Use a service account for authentication
+### Service account permissions
 
-Instead of Application Default Credentials, attach a service account to the Cloud Run service:
+The Cloud Run service account needs the **Vertex AI User** role:
 
 ```bash
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:YOUR_SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:YOUR_SERVICE_ACCOUNT@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/aiplatform.user"
 ```
 
-The app will automatically use the attached service account — no credentials file needed.
-
-### Production build (local test before deploy)
+### Local production build
 
 ```bash
-npm run build      # builds React into dist/
-npm run preview    # serves dist/ + backend on PORT (default 3001)
+npm run build      # compiles React into dist/
+npm run preview    # serves dist/ + backend together on PORT (default 3001)
 ```

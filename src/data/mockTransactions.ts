@@ -1,8 +1,8 @@
 import { Transaction } from '../types';
 
-// 10 mock transactions: 8 compliant, 2 policy violations
-// Violations: TXN-007 (Dinner at Nobu - $245, exceeds $75/person meal limit)
-//             TXN-009 (Hotel Intercontinental - $395/night, exceeds $250/night limit)
+// 10 mock transactions: 9 compliant, 1 policy violation
+// Violations: TXN-007 (Dinner at Nobu - $245 ÷ 3 attendees = $81.67/person, exceeds $75/person meal limit)
+// TXN-009 (Hotel Intercontinental - $395/night) is compliant under the $450/night limit.
 export const mockTransactions: Transaction[] = [
   {
     id: 'TXN-001',
@@ -70,8 +70,9 @@ export const mockTransactions: Transaction[] = [
     date: '2026-05-01',
     amount: 245.00,
     category: null,
-    // VIOLATION: Exceeds $75/person meal limit (3 guests = $81.67/person)
+    // VIOLATION: $245 ÷ 3 attendees = $81.67/person, exceeds $75/person meal limit
     description: 'Client dinner - 3 attendees (client + 2 team members)',
+    attendees: 3,
     source: 'bank',
     location: 'New York, NY',
   },
@@ -91,7 +92,7 @@ export const mockTransactions: Transaction[] = [
     date: '2026-05-02',
     amount: 395.00,
     category: null,
-    // VIOLATION: Exceeds $250/night hotel limit
+    // Compliant: $395/night is within the $450/night hotel limit
     description: '1 night stay, extended for training',
     source: 'bank',
     location: 'New York, NY',

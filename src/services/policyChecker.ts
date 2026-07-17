@@ -19,8 +19,8 @@ export function checkPolicy(transaction: Transaction): PolicyCheckResult {
     return { compliant: true, violations, warnings };
   }
 
-  // Amount limit check
-  if (transaction.amount > rule.maxAmount) {
+  // Amount limit check — meals use a per-person limit, handled separately below
+  if (transaction.category !== 'Meals & Dining' && transaction.amount > rule.maxAmount) {
     violations.push(
       `Amount $${transaction.amount.toFixed(2)} exceeds the ${rule.maxAmountLabel} limit (over by $${(transaction.amount - rule.maxAmount).toFixed(2)}).`
     );
@@ -28,9 +28,11 @@ export function checkPolicy(transaction: Transaction): PolicyCheckResult {
 
   // Meals — per-person check
   if (transaction.category === 'Meals & Dining') {
-    if (transaction.amount > rule.maxAmount) {
+    const attendees = transaction.attendees && transaction.attendees > 0 ? transaction.attendees : 1;
+    const perPerson = transaction.amount / attendees;
+    if (perPerson > rule.maxAmount) {
       violations.push(
-        `Meal expense must be ≤ $${rule.maxAmount} per person. Ensure the per-person amount is within policy; if multiple attendees, submit with headcount breakdown.`
+        `Meal expense is $${perPerson.toFixed(2)} per person ($${transaction.amount.toFixed(2)} ÷ ${attendees} attendee${attendees === 1 ? '' : 's'}), which exceeds the $${rule.maxAmount} per-person limit by $${(perPerson - rule.maxAmount).toFixed(2)}.`
       );
     }
     if (!transaction.description) {
@@ -40,8 +42,8 @@ export function checkPolicy(transaction: Transaction): PolicyCheckResult {
 
   // Receipt requirement — satisfied by an attached image OR by being sourced from a receipt upload
   const hasReceipt = !!transaction.receiptImage || transaction.source === 'receipt';
-  if (rule.requiresReceipt && transaction.amount > 25 && !hasReceipt) {
-    warnings.push(`Receipt required for expenses over $25. Please attach a receipt.`);
+  if (rule.requiresReceipt && transaction.amount > 100 && !hasReceipt) {
+    warnings.push(`Receipt required for expenses over $100. Please attach a receipt.`);
   }
 
   // Pre-approval

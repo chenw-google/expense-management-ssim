@@ -5,10 +5,12 @@ import ExpenseReport from './components/ExpenseReport';
 import PolicyPanel from './components/PolicyPanel';
 import { Transaction } from './types';
 import { mockTransactions } from './data/mockTransactions';
+import { useLanguage } from './context/LanguageContext';
 
 type Tab = 'transactions' | 'policy' | 'report';
 
 export default function App() {
+  const { t } = useLanguage();
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [activeTab, setActiveTab] = useState<Tab>('transactions');
   const [selectedModel, setSelectedModel] = useState<string>(MODELS[0].id);
@@ -30,9 +32,9 @@ export default function App() {
     );
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'transactions', label: 'Transactions', icon: '💳' },
-    { key: 'policy', label: 'Policy', icon: '📋' },
-    { key: 'report', label: 'Expense Report', icon: '📊' },
+    { key: 'transactions', label: t.tabs.transactions, icon: '💳' },
+    { key: 'policy', label: t.tabs.policy, icon: '📋' },
+    { key: 'report', label: t.tabs.report, icon: '📊' },
   ];
 
   return (
@@ -42,7 +44,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {backendError && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-3 text-sm">
-            ⚠️ Backend not reachable. Run <code className="bg-red-100 px-1 rounded">npm run dev</code> and ensure the server started.
+            {t.backendError.prefix} <code className="bg-red-100 px-1 rounded">npm run dev</code> {t.backendError.suffix}
           </div>
         )}
 

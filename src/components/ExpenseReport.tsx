@@ -2,6 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Transaction } from '../types';
 import { reportGuidelines } from '../data/reportGuidelines';
+import { useLanguage } from '../context/LanguageContext';
+import { translateCategory } from '../i18n/translations';
+import LanguageToggle from './LanguageToggle';
 
 const COLORS = [
   '#3b82f6', '#8b5cf6', '#06b6d4', '#f97316',
@@ -16,6 +19,7 @@ const MANAGER_EMAIL = 'john.doe@statestreet.com';
 const DEMO_RECIPIENT = 'dev@chenkeamonwang.altostrat.com';
 
 export default function ExpenseReport({ transactions: allTransactions }: Props) {
+  const { t } = useLanguage();
   const reportRef = useRef<HTMLDivElement>(null);
   const [sending, setSending] = useState(false);
   const [sendStatus, setSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -40,7 +44,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
     return { categoryBreakdown: breakdown, violations: viols, total: sum, warnings: warns };
   }, [transactions]);
 
-  const chartData = Object.entries(categoryBreakdown).map(([name, value]) => ({ name, value }));
+  const chartData = Object.entries(categoryBreakdown).map(([name, value]) => ({ name: translateCategory(name, t), value }));
 
   const dates = transactions.map((tx) => tx.date).sort();
   const periodStart = dates[0] ?? '—';
@@ -83,28 +87,36 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
 
   if (transactions.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-        <span className="text-5xl">📊</span>
-        <p className="text-slate-600 mt-4 font-medium">No categorized transactions yet</p>
-        <p className="text-slate-400 text-sm mt-1">
-          Go to Transactions and run "Categorize with Gemini AI" first.
-        </p>
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <LanguageToggle />
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+          <span className="text-5xl">📊</span>
+          <p className="text-slate-600 mt-4 font-medium">{t.report.noDataTitle}</p>
+          <p className="text-slate-400 text-sm mt-1">{t.report.noDataHint}</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Language toggle */}
+      <div className="flex justify-end">
+        <LanguageToggle />
+      </div>
+
       {/* Controls */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="font-semibold text-slate-900">{reportGuidelines.title}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Report ID: {reportId}</p>
+          <h2 className="font-semibold text-slate-900">{t.report.reportTitle}</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{t.report.reportIdLabel} {reportId}</p>
         </div>
         <div className="flex items-center gap-3">
           {sendStatus === 'success' && (
             <span className="text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg">
-              ✓ Sent to {DEMO_RECIPIENT}
+              {t.report.sentTo(MANAGER_EMAIL)}
             </span>
           )}
           {sendStatus === 'error' && (
@@ -117,13 +129,13 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
             disabled={sending}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition flex items-center gap-2"
           >
-            {sending ? <><span className="animate-spin">⟳</span> Sending…</> : <>✉️ Notify Manager</>}
+            {sending ? <><span className="animate-spin">⟳</span> {t.report.sending}</> : <>✉️ {t.report.notifyManager}</>}
           </button>
           <button
             onClick={handlePrint}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition flex items-center gap-2"
           >
-            🖨️ Print / Export PDF
+            🖨️ {t.report.printExport}
           </button>
         </div>
       </div>
@@ -134,22 +146,22 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         <div className="px-8 py-6 border-b border-slate-200 bg-slate-50 rounded-t-xl print:bg-white">
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">Employee Information</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">{t.report.employeeInformation}</p>
               <dl className="space-y-1 text-sm">
-                <ReportField label="Name" value="Jane Smith" />
-                <ReportField label="Employee ID" value="E001" />
-                <ReportField label="Department" value="Business Development" />
-                <ReportField label="Manager" value="John Doe" />
-                <ReportField label="Manager Email" value={MANAGER_EMAIL} />
+                <ReportField label={t.report.fieldName} value="Jane Smith" />
+                <ReportField label={t.report.fieldEmployeeId} value="E001" />
+                <ReportField label={t.report.fieldDepartment} value="Business Development" />
+                <ReportField label={t.report.fieldManager} value="John Doe" />
+                <ReportField label={t.report.fieldManagerEmail} value={MANAGER_EMAIL} />
               </dl>
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">Report Details</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">{t.report.reportDetails}</p>
               <dl className="space-y-1 text-sm">
-                <ReportField label="Report ID" value={reportId} />
-                <ReportField label="Period" value={`${periodStart} → ${periodEnd}`} />
-                <ReportField label="Submitted" value={new Date().toISOString().split('T')[0]} />
-                <ReportField label="Submission Due" value={reportGuidelines.submissionDeadline} />
+                <ReportField label={t.report.fieldReportId} value={reportId} />
+                <ReportField label={t.report.fieldPeriod} value={`${periodStart} → ${periodEnd}`} />
+                <ReportField label={t.report.fieldSubmitted} value={new Date().toISOString().split('T')[0]} />
+                <ReportField label={t.report.fieldSubmissionDue} value={t.report.submissionDeadlineText} />
               </dl>
             </div>
           </div>
@@ -158,19 +170,19 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         {/* Section 2: Executive Summary */}
         <div className="px-8 py-5 border-b border-slate-200">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
-            Executive Summary
+            {t.report.executiveSummary}
           </h3>
           <div className="grid grid-cols-4 gap-4">
-            <SummaryCard label="Total Expenses" value={`$${total.toFixed(2)}`} color="text-slate-900" />
-            <SummaryCard label="Transactions" value={String(transactions.length)} color="text-blue-600" />
+            <SummaryCard label={t.report.totalExpenses} value={`$${total.toFixed(2)}`} color="text-slate-900" />
+            <SummaryCard label={t.report.transactionsLabel} value={String(transactions.length)} color="text-blue-600" />
             <SummaryCard
-              label="Policy Violations"
+              label={t.report.policyViolations}
               value={String(violations.length)}
               color={violations.length > 0 ? 'text-red-600' : 'text-green-600'}
             />
             <SummaryCard
-              label="Compliance Status"
-              value={violations.length === 0 ? 'Compliant' : 'Review Required'}
+              label={t.report.complianceStatus}
+              value={violations.length === 0 ? t.report.compliant : t.report.reviewRequired}
               color={violations.length === 0 ? 'text-green-600' : 'text-red-600'}
             />
           </div>
@@ -179,17 +191,17 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         {/* Section 3: Itemized Expenses */}
         <div className="px-8 py-5 border-b border-slate-200">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
-            Itemized Expenses
+            {t.report.itemizedExpenses}
           </h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
-                <th className="pb-2 font-medium">Date</th>
-                <th className="pb-2 font-medium">Vendor</th>
-                <th className="pb-2 font-medium">Category</th>
-                <th className="pb-2 font-medium text-right">Amount</th>
-                <th className="pb-2 font-medium">Status</th>
-                <th className="pb-2 font-medium">Notes</th>
+                <th className="pb-2 font-medium">{t.report.colDate}</th>
+                <th className="pb-2 font-medium">{t.report.colVendor}</th>
+                <th className="pb-2 font-medium">{t.report.colCategory}</th>
+                <th className="pb-2 font-medium text-right">{t.report.colAmount}</th>
+                <th className="pb-2 font-medium">{t.report.colStatus}</th>
+                <th className="pb-2 font-medium">{t.report.colNotes}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -201,7 +213,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
                     <tr key={tx.id} className={isViolation ? 'bg-red-50' : ''}>
                       <td className="py-2.5 text-slate-600">{tx.date}</td>
                       <td className="py-2.5 font-medium text-slate-900">{tx.vendor}</td>
-                      <td className="py-2.5 text-slate-600">{tx.category}</td>
+                      <td className="py-2.5 text-slate-600">{translateCategory(tx.category, t)}</td>
                       <td className="py-2.5 text-right font-semibold">${tx.amount.toFixed(2)}</td>
                       <td className="py-2.5">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -211,10 +223,10 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
                             ? 'bg-green-100 text-green-700'
                             : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {isViolation ? '❌ Violation' : tx.policyStatus ? '✓ OK' : 'Unchecked'}
+                          {isViolation ? `❌ ${t.report.statusViolation}` : tx.policyStatus ? `✓ ${t.report.statusOk}` : t.report.statusUnchecked}
                         </span>
                       </td>
-                      <td className="py-2.5 text-xs text-slate-500 max-w-xs truncate" title={tx.description}>
+                      <td className="py-2.5 text-xs text-slate-500 max-w-xs whitespace-normal break-words">
                         {tx.description ?? '—'}
                       </td>
                     </tr>
@@ -223,7 +235,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-200">
-                <td colSpan={3} className="pt-3 font-semibold text-slate-700">Total</td>
+                <td colSpan={3} className="pt-3 font-semibold text-slate-700">{t.report.total}</td>
                 <td className="pt-3 text-right font-bold text-slate-900">${total.toFixed(2)}</td>
                 <td colSpan={2} />
               </tr>
@@ -234,7 +246,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         {/* Section 4: Category Breakdown */}
         <div className="px-8 py-5 border-b border-slate-200">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
-            Category Breakdown
+            {t.report.categoryBreakdown}
           </h3>
           <div className="grid grid-cols-2 gap-6 items-center">
             <div className="h-56">
@@ -261,9 +273,9 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
             <table className="text-sm w-full">
               <thead>
                 <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
-                  <th className="pb-2 font-medium">Category</th>
-                  <th className="pb-2 font-medium text-right">Amount</th>
-                  <th className="pb-2 font-medium text-right">%</th>
+                  <th className="pb-2 font-medium">{t.report.colCategory}</th>
+                  <th className="pb-2 font-medium text-right">{t.report.colAmount}</th>
+                  <th className="pb-2 font-medium text-right">{t.report.colPercent}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -276,7 +288,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
                           className="w-2.5 h-2.5 rounded-full inline-block"
                           style={{ backgroundColor: COLORS[i % COLORS.length] }}
                         />
-                        {cat}
+                        {translateCategory(cat, t)}
                       </td>
                       <td className="py-2 text-right font-medium">${amt.toFixed(2)}</td>
                       <td className="py-2 text-right text-slate-500">
@@ -293,7 +305,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         {violations.length > 0 && (
           <div className="px-8 py-5 border-b border-slate-200 bg-red-50 print:bg-white">
             <h3 className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-4">
-              ⚠️ Policy Violations — Action Required
+              {t.report.policyViolationsAction}
             </h3>
             <div className="space-y-3">
               {violations.map((tx) => (
@@ -304,7 +316,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
                     </span>
                     <span className="font-bold text-red-700">${tx.amount.toFixed(2)}</span>
                   </div>
-                  <p className="text-xs text-slate-500 mb-2">Category: {tx.category}</p>
+                  <p className="text-xs text-slate-500 mb-2">{t.report.categoryLabel(translateCategory(tx.category, t))}</p>
                   {tx.policyStatus!.violations.map((v, i) => (
                     <p key={i} className="text-sm text-red-700 flex items-start gap-2">
                       <span>•</span><span>{v}</span>
@@ -320,7 +332,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         {warnings.length > 0 && (
           <div className="px-8 py-5 border-b border-slate-200">
             <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-4">
-              Warnings & Notes
+              {t.report.warningsNotes}
             </h3>
             <div className="space-y-2">
               {warnings.map((tx) => (
@@ -338,15 +350,15 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
         {/* Section 7: Approval Block */}
         <div className="px-8 py-6 rounded-b-xl">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-5">
-            Approval — {reportGuidelines.approverTitle}
+            {t.report.approval(t.report.approverTitle)}
           </h3>
           <div className="grid grid-cols-3 gap-8">
-            {['Employee Signature', 'Manager Approval', 'Finance Approval'].map((label) => (
+            {[t.report.signatureEmployee, t.report.signatureManager, t.report.signatureFinance].map((label) => (
               <div key={label} className="border-t-2 border-slate-300 pt-3">
                 <p className="text-xs text-slate-500">{label}</p>
                 <div className="h-10" />
                 <p className="text-xs text-slate-400 border-t border-slate-200 pt-1 mt-1">
-                  Signature / Date
+                  {t.report.signatureDate}
                 </p>
               </div>
             ))}
@@ -356,7 +368,7 @@ export default function ExpenseReport({ transactions: allTransactions }: Props) 
 
       {/* Format guidelines reference */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-slate-800 mb-2">Report Format Guidelines</h3>
+        <h3 className="text-sm font-semibold text-slate-800 mb-2">{t.report.formatGuidelines}</h3>
         <pre className="text-xs text-slate-600 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap font-mono">
           {reportGuidelines.format.trim()}
         </pre>

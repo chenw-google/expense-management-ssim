@@ -1,3 +1,5 @@
+import { useLanguage } from '../context/LanguageContext';
+
 const MODELS = [
   { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
   { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
@@ -27,6 +29,7 @@ function StateStreetLogo() {
 }
 
 export default function Header({ selectedModel, onModelChange }: Props) {
+  const { t } = useLanguage();
   return (
     <header className="bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -36,11 +39,11 @@ export default function Header({ selectedModel, onModelChange }: Props) {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-slate-900">ExpenseIQ</h1>
-            <p className="text-xs text-slate-500">State Street Expense Manager</p>
+            <p className="text-xs text-slate-500">{t.header.subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <label className="text-xs text-slate-500 font-medium">Model</label>
+          <label className="text-xs text-slate-500 font-medium">{t.header.model}</label>
           <select
             value={selectedModel}
             onChange={(e) => onModelChange(e.target.value)}

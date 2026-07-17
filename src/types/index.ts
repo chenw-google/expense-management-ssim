@@ -16,6 +16,7 @@ export interface Transaction {
   amount: number;
   category: SpendingCategory | null;
   description?: string;
+  attendees?: number;
   source: 'bank' | 'receipt';
   receiptImage?: string;
   location?: string;

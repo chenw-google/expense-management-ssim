@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently -n server,vite -c cyan,blue \"tsx --env-file=.env watch server/index.ts\" \"vite\"",
-    "server": "tsx --env-file=.env watch server/index.ts",
+    "dev": "concurrently -n server,vite -c cyan,blue \"tsx watch --env-file=.env server/index.ts\" \"vite\"",
+    "server": "tsx watch --env-file=.env server/index.ts",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

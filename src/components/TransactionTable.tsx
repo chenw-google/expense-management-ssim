@@ -1,7 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { Transaction, SpendingCategory } from '../types';
 import { categorizeAllTransactions, processReceiptImage, ReceiptData } from '../services/geminiService';
 import { checkAllTransactions, checkPolicy } from '../services/policyChecker';
+import { useLanguage } from '../context/LanguageContext';
+import { translateCategory, Translation } from '../i18n/translations';
+import LanguageToggle from './LanguageToggle';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Meals & Dining': 'bg-orange-100 text-orange-800',
@@ -50,10 +53,12 @@ function findMatchingTransaction(receipt: ReceiptData, transactions: Transaction
 }
 
 export default function TransactionTable({ transactions, onUpdateTransaction, onAddTransaction, model }: Props) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [receiptProcessing, setReceiptProcessing] = useState(false);
   const [notification, setNotification] = useState<ReceiptNotification | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleCategorize = async () => {
@@ -61,14 +66,17 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
     setLoading(true);
     try {
       const uncategorized = transactions.filter((tx) => !tx.category);
-      await categorizeAllTransactions(uncategorized, model, (id, category) => {
+      const results = await categorizeAllTransactions(uncategorized, model, (id, category) => {
         onUpdateTransaction(id, { category });
       });
-      const updatedAll = transactions.map((tx) => ({ ...tx, category: tx.category as SpendingCategory }));
+      const updatedAll = transactions.map((tx) => ({
+        ...tx,
+        category: (results.get(tx.id) ?? tx.category) as SpendingCategory,
+      }));
       const checked = checkAllTransactions(updatedAll);
       checked.forEach((tx) => onUpdateTransaction(tx.id, { policyStatus: tx.policyStatus }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Categorization failed — is the backend running?');
+      setError(err instanceof Error ? err.message : t.transactions.categorizationFailed);
     } finally {
       setLoading(false);
     }
@@ -82,7 +90,7 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
   const handleReceiptFile = async (file: File) => {
     const allowed = file.type.startsWith('image/') || file.type === 'application/pdf' || file.type === 'text/html';
     if (!allowed) {
-      setError('Unsupported file type. Please upload an image, PDF, or HTML file.');
+      setError(t.transactions.unsupportedFile);
       return;
     }
     setReceiptProcessing(true);
@@ -115,7 +123,7 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
         setNotification({ type: 'added', vendor: data.vendor, amount: data.amount });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Receipt processing failed — is the backend running?');
+      setError(err instanceof Error ? err.message : t.transactions.receiptFailed);
     } finally {
       setReceiptProcessing(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -129,13 +137,18 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
 
   return (
     <div className="space-y-4">
+      {/* Language toggle */}
+      <div className="flex justify-end">
+        <LanguageToggle />
+      </div>
+
       {/* Stats bar */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Transactions', value: transactions.length, color: 'text-slate-900' },
-          { label: 'Categorized', value: categorized, color: 'text-blue-600' },
-          { label: 'Policy Violations', value: violationCount, color: violationCount > 0 ? 'text-red-600' : 'text-green-600' },
-          { label: 'Total Amount', value: `$${total.toFixed(2)}`, color: 'text-slate-900' },
+          { label: t.transactions.statTransactions, value: transactions.length, color: 'text-slate-900' },
+          { label: t.transactions.statCategorized, value: categorized, color: 'text-blue-600' },
+          { label: t.transactions.statViolations, value: violationCount, color: violationCount > 0 ? 'text-red-600' : 'text-green-600' },
+          { label: t.transactions.statTotal, value: `$${total.toFixed(2)}`, color: 'text-slate-900' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <p className="text-xs text-slate-500">{stat.label}</p>
@@ -153,8 +166,8 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
         }`}>
           <span>
             {notification.type === 'matched'
-              ? `✓ Receipt matched and linked to ${notification.matchedId} — ${notification.vendor} $${notification.amount.toFixed(2)}`
-              : `＋ No match found — added "${notification.vendor}" ($${notification.amount.toFixed(2)}) as a new expense`}
+              ? t.transactions.notificationMatched(notification.matchedId!, notification.vendor, `$${notification.amount.toFixed(2)}`)
+              : t.transactions.notificationAdded(notification.vendor, `$${notification.amount.toFixed(2)}`)}
           </span>
           <button onClick={() => setNotification(null)} className="ml-4 opacity-50 hover:opacity-100 font-bold">✕</button>
         </div>
@@ -164,9 +177,9 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-slate-900">Bank Transactions</h2>
+            <h2 className="font-semibold text-slate-900">{t.transactions.title}</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {categorized}/{transactions.length} categorized · {uncategorized} pending
+              {t.transactions.summary(categorized, transactions.length, uncategorized)}
             </p>
           </div>
           <div className="flex gap-2">
@@ -183,15 +196,15 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
               className="text-sm px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-2"
             >
               {receiptProcessing
-                ? <><span className="animate-spin inline-block">⟳</span> Processing…</>
-                : <>🧾 Upload Receipt</>}
+                ? <><span className="animate-spin inline-block">⟳</span> {t.transactions.processing}</>
+                : <>🧾 {t.transactions.uploadReceipt}</>}
             </button>
             <button
               onClick={handleRunPolicyCheck}
               disabled={categorized === 0}
               className="text-sm px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              Check Policy
+              {t.transactions.checkPolicy}
             </button>
             <button
               onClick={handleCategorize}
@@ -199,7 +212,7 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
               className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition font-medium flex items-center gap-2"
             >
               {loading && <span className="animate-spin inline-block">⟳</span>}
-              {loading ? 'Categorizing…' : 'Categorize with Gemini AI'}
+              {loading ? t.transactions.categorizing : t.transactions.categorize}
             </button>
           </div>
         </div>
@@ -215,14 +228,14 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
-                <th className="px-5 py-3 font-medium">ID</th>
-                <th className="px-5 py-3 font-medium">Date</th>
-                <th className="px-5 py-3 font-medium">Vendor</th>
-                <th className="px-5 py-3 font-medium">Description</th>
-                <th className="px-5 py-3 font-medium">Category</th>
-                <th className="px-5 py-3 font-medium text-right">Amount</th>
-                <th className="px-5 py-3 font-medium">Receipt</th>
-                <th className="px-5 py-3 font-medium">Policy</th>
+                <th className="px-5 py-3 font-medium w-28">{t.transactions.colId}</th>
+                <th className="px-5 py-3 font-medium w-28">{t.transactions.colDate}</th>
+                <th className="px-5 py-3 font-medium w-40">{t.transactions.colVendor}</th>
+                <th className="px-5 py-3 font-medium">{t.transactions.colDescription}</th>
+                <th className="px-5 py-3 font-medium w-44">{t.transactions.colCategory}</th>
+                <th className="px-5 py-3 font-medium text-right w-28">{t.transactions.colAmount}</th>
+                <th className="px-5 py-3 font-medium w-24">{t.transactions.colReceipt}</th>
+                <th className="px-5 py-3 font-medium w-28">{t.transactions.colPolicy}</th>
               </tr>
             </thead>
             <tbody>
@@ -232,106 +245,125 @@ export default function TransactionTable({ transactions, onUpdateTransaction, on
                 const hasPolicyNotes = isViolation || hasWarnings;
 
                 return (
-                  <tr key={tx.id} className="group">
+                  <Fragment key={tx.id}>
                     {/* Main transaction row — no bottom border if notes follow */}
-                    <td colSpan={8} className="p-0">
-                      <table className="w-full">
-                        <tbody>
-                          <tr className={`transition-colors ${
-                            isViolation
-                              ? 'bg-red-50 hover:bg-red-50'
-                              : 'hover:bg-slate-50'
-                          } ${hasPolicyNotes ? '' : 'border-b border-slate-50'}`}>
-                            <td className="px-5 py-3.5 font-mono text-xs text-slate-500 w-28">{tx.id}</td>
-                            <td className="px-5 py-3.5 text-slate-600 w-28">{tx.date}</td>
-                            <td className="px-5 py-3.5 font-medium text-slate-900 w-40">{tx.vendor}</td>
-                            <td className="px-5 py-3.5 text-slate-500 max-w-xs truncate" title={tx.description}>
-                              {tx.description ?? '—'}
-                            </td>
-                            <td className="px-5 py-3.5 w-44">
-                              {loading && !tx.category ? (
-                                <span className="text-xs text-slate-400 animate-pulse">Categorizing…</span>
-                              ) : tx.category ? (
-                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${CATEGORY_COLORS[tx.category] ?? 'bg-slate-100 text-slate-700'}`}>
-                                  {tx.category}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-slate-400 italic">Pending</span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3.5 text-right font-semibold text-slate-900 w-28">
-                              ${tx.amount.toFixed(2)}
-                            </td>
-                            <td className="px-5 py-3.5 w-24">
-                              {tx.receiptImage ? (
-                                <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                                  ✓ Verified
-                                </span>
-                              ) : (
-                                <span className="text-xs text-slate-300">—</span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3.5 w-28">
-                              <PolicyBadge policyStatus={tx.policyStatus} />
-                            </td>
-                          </tr>
+                    <tr className={`group transition-colors ${
+                      isViolation
+                        ? 'bg-red-50 hover:bg-red-50'
+                        : 'hover:bg-slate-50'
+                    } ${hasPolicyNotes ? '' : 'border-b border-slate-50'}`}>
+                      <td className="px-5 py-3.5 font-mono text-xs text-slate-500">{tx.id}</td>
+                      <td className="px-5 py-3.5 text-slate-600">{tx.date}</td>
+                      <td className="px-5 py-3.5 font-medium text-slate-900">{tx.vendor}</td>
+                      <td className="px-5 py-3.5 text-slate-500 max-w-xs whitespace-normal break-words">
+                        {tx.description ?? '—'}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {loading && !tx.category ? (
+                          <span className="text-xs text-slate-400 animate-pulse">{t.transactions.categorizing}</span>
+                        ) : tx.category ? (
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${CATEGORY_COLORS[tx.category] ?? 'bg-slate-100 text-slate-700'}`}>
+                            {translateCategory(tx.category, t)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">{t.transactions.pending}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-slate-900">
+                        ${tx.amount.toFixed(2)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {tx.receiptImage ? (
+                          <button
+                            onClick={() => setPreviewImage(tx.receiptImage!)}
+                            className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium hover:bg-green-200 transition cursor-pointer"
+                          >
+                            ✓ {t.transactions.verified}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <PolicyBadge policyStatus={tx.policyStatus} t={t} />
+                      </td>
+                    </tr>
 
-                          {/* Inline policy notes row */}
-                          {hasPolicyNotes && tx.policyStatus && (
-                            <tr className={`border-b border-slate-50 ${isViolation ? 'bg-red-50' : 'bg-amber-50'}`}>
-                              <td colSpan={8} className={`px-5 pb-3 pt-0`}>
-                                <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${
-                                  isViolation
-                                    ? 'bg-red-50 border-red-200'
-                                    : 'bg-amber-50 border-amber-200'
-                                }`}>
-                                  {tx.policyStatus.violations.map((v, i) => (
-                                    <p key={`v-${i}`} className="text-red-700 flex items-start gap-1.5">
-                                      <span className="mt-0.5 shrink-0">❌</span><span>{v}</span>
-                                    </p>
-                                  ))}
-                                  {tx.policyStatus.warnings.map((w, i) => (
-                                    <p key={`w-${i}`} className="text-amber-700 flex items-start gap-1.5">
-                                      <span className="mt-0.5 shrink-0">⚠️</span><span>{w}</span>
-                                    </p>
-                                  ))}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
+                    {/* Inline policy notes row */}
+                    {hasPolicyNotes && tx.policyStatus && (
+                      <tr className={`border-b border-slate-50 ${isViolation ? 'bg-red-50' : 'bg-amber-50'}`}>
+                        <td colSpan={8} className={`px-5 pb-3 pt-0`}>
+                          <div className={`rounded-lg border px-3 py-2 text-xs space-y-1 ${
+                            isViolation
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-amber-50 border-amber-200'
+                          }`}>
+                            {tx.policyStatus.violations.map((v, i) => (
+                              <p key={`v-${i}`} className="text-red-700 flex items-start gap-1.5">
+                                <span className="mt-0.5 shrink-0">❌</span><span>{v}</span>
+                              </p>
+                            ))}
+                            {tx.policyStatus.warnings.map((w, i) => (
+                              <p key={`w-${i}`} className="text-amber-700 flex items-start gap-1.5">
+                                <span className="mt-0.5 shrink-0">⚠️</span><span>{w}</span>
+                              </p>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Receipt image preview modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-3xl max-h-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-700 font-bold shadow-lg hover:bg-slate-100"
+            >
+              ✕
+            </button>
+            <img
+              src={previewImage}
+              alt={t.transactions.receiptAlt}
+              className="rounded-lg max-h-[85vh] max-w-full object-contain shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function PolicyBadge({ policyStatus }: { policyStatus?: Transaction['policyStatus'] }) {
+function PolicyBadge({ policyStatus, t }: { policyStatus?: Transaction['policyStatus']; t: Translation }) {
   if (!policyStatus) return <span className="text-xs text-slate-300">—</span>;
   if (!policyStatus.compliant) {
     return (
       <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-        ❌ Violation
+        ❌ {t.transactions.badgeViolation}
       </span>
     );
   }
   if (policyStatus.warnings.length > 0) {
     return (
       <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
-        ⚠️ Warning
+        ⚠️ {t.transactions.badgeWarning}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-      ✓ OK
+      ✓ {t.transactions.badgeOk}
     </span>
   );
 }

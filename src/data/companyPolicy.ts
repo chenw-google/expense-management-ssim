@@ -15,8 +15,8 @@ export const companyPolicy: CompanyPolicy = {
     },
     {
       category: 'Hotel & Lodging',
-      maxAmount: 250,
-      maxAmountLabel: '$250 per night',
+      maxAmount: 450,
+      maxAmountLabel: '$450 per night',
       notes:
         'Standard room only. Suite upgrades are non-reimbursable unless no standard rooms are available. Taxes and resort fees are reimbursable.',
       requiresReceipt: true,
@@ -27,7 +27,7 @@ export const companyPolicy: CompanyPolicy = {
       maxAmount: 75,
       maxAmountLabel: '$75 per trip',
       notes:
-        'Use lowest-cost available option. Rideshare preferred over taxi. Receipts required for all transactions over $25.',
+        'Use lowest-cost available option. Rideshare preferred over taxi. Receipts required for all transactions over $100.',
       requiresReceipt: true,
       requiresPreApproval: false,
     },
@@ -91,7 +91,7 @@ export const companyPolicy: CompanyPolicy = {
   ],
   generalRules: [
     'All expenses must have a valid business purpose.',
-    'Receipts are required for all expenses over $25.',
+    'Receipts are required for all expenses over $100.',
     'Expense reports must be submitted within 30 days of the expense date.',
     'Personal expenses are never reimbursable.',
     'Expenses must be submitted by the individual who incurred the cost.',
